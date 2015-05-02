@@ -40,7 +40,7 @@ func FetchS(fields []string, end string) ([]Attendee, error) {
 
 	rows, err := misc.Db.Query("SELECT " + fieldsStr + " FROM attendee " + end + ";")
 	if err != nil {
-		log.Println("ERROR fetching attendee(s):", err)
+		log.Println("ERROR fetching attendee(s):", err, end)
 		return atts, err
 	}
 
@@ -105,7 +105,7 @@ func Update(lid int) error {
 	// Fetch the page
 	resp, err := http.Get(fmt.Sprintf("%s/OrganisatorischeEenheid/Attendees/%d", misc.UrlPrefix, lid))
 	if err != nil {
-		log.Println("ERROR fetching attendees:", err, lid)
+		log.Println("ERROR fetching page with attendees:", err, lid)
 		return err
 	}
 	defer resp.Body.Close()
@@ -118,17 +118,22 @@ func Update(lid int) error {
 	}
 	atts := parse(doc, []Attendee{}, lid)
 
+	if len(atts) == 0 {
+		return fmt.Errorf("no attendees found for location id: %d", lid)
+	}
+
 	// Save the Attendees in the database.
 	for _, a := range atts {
-		res, err := misc.Db.Exec(`
+		_, err := misc.Db.Exec(`
 			INSERT INTO attendee (id, name, type, lid)
 			VALUES (?, ?, ?, ?)
 			ON DUPLICATE KEY UPDATE
 				name = VALUES(name), type = VALUES(type), lid = VALUES(lid);
 		`, a.Id, a.Name, a.Type, a.Lid)
-		fmt.Print(res.LastInsertId())
-		fmt.Print(res.RowsAffected())
-		fmt.Println(a, err)
+		if err != nil {
+			log.Println("ERROR saving/inserting/updating fetched attendees:", err, lid)
+			return err
+		}
 	}
 
 	return nil
@@ -195,8 +200,4 @@ next:
 		atts = parse(c, atts, lid)
 	}
 	return atts
-}
-
-func save() {
-
 }
