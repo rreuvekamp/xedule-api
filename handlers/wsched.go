@@ -8,6 +8,9 @@ import (
 	"github.com/rreuvekamp/xedule-api/types/weekschedule"
 )
 
+// WSched HTTP handler gives the WeekSchedule for the given attendee id (aid), year and week.
+// Defaults to current year and week (next week if current weekday >= saterday).
+// Format changes by setting 'legacy' form value.
 func WSched(w http.ResponseWriter, r *http.Request) {
 	var aid, year, week int
 	var err error

@@ -21,6 +21,7 @@ const legacyTime = "15:04"
 
 var legacyTimeAdd = time.Duration(time.Hour * 2)
 
+// Legacy formats the WeekSchedule in a []legacyday.
 func (w WeekSchedule) Legacy() []legacyDay {
 	var days []legacyDay
 	for _, d := range w.Days {

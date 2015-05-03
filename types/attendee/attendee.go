@@ -27,7 +27,9 @@ const (
 	Facil Type = 1 << iota // 3, facility
 )
 
-// FetchS: FetchSql
+// FetchS does an SELECT SQL query for attendees.
+// The fields to select can by given (defaults to all fields)
+// as well as the the end of the statement (everything after 'FROM attendee').
 func FetchS(fields []string, end string) ([]Attendee, error) {
 
 	var atts []Attendee

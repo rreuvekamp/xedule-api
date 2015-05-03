@@ -14,15 +14,20 @@ import (
 
 /*
 To do:
-+Rewrite wsched.Fetch without external ICS parser.
-+WeekSchedule HTTP handler (including legacy mode)
-+Caching of WeekSchedule
  Have attendees be in memory instead of database.
- Cache of WeekSchedule clean up every 15 minutes.
++Cache of WeekSchedule clean up every 15 minutes.
  Log HTTP requests
++Readme markdown
++Config file
 */
 
 func main() {
+	err := misc.LoadConfig(misc.CfgFilename)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// Don't exit program. Without a database this application can still preform some tasks (WeekSchedule without attendee types).
 	misc.ConnectDb()
 
 	lid := flag.Int("update-attendees", 0,
@@ -42,5 +47,5 @@ func main() {
 
 	http.HandleFunc("/schedule.json", handlers.WSched)
 
-	fmt.Println(http.ListenAndServe(":8000", nil))
+	fmt.Println(http.ListenAndServe(misc.Cfg().Http.Addr, nil))
 }

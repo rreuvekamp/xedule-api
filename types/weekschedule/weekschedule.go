@@ -12,25 +12,27 @@ import (
 	"github.com/rreuvekamp/xedule-api/types/attendee"
 )
 
+// WeekSchedule contains all Days and Events of an attendee for a week.
 type WeekSchedule struct {
 	Year int           `json:"year"`
 	Week int           `json:"week"`
 	Days []DaySchedule `json:"days"`
 }
 
+// DaySchedule contains all Events of an attendee for a day.
 type DaySchedule struct {
 	Day    time.Weekday `json:"day"`
 	Events []Event      `json:"events"`
 }
 
+// Event is a single event for an attendee.
 type Event struct {
 	Start   int64    `json:"start"`
 	End     int64    `json:"end"`
+	Desc    string   `json:"desc"`              // Description
 	Classes []string `json:"classes,omitempty"` // (Other) classes/attendees
 	Facs    []string `json:"facs,omitempty"`    // Facilities
 	Staffs  []string `json:"staffs,omitempty"`
-	Desc    string   `json:"desc"` // Description
-	// DescH   string // Description human readable
 
 	// Used by Fetch
 	atts []string
@@ -39,20 +41,24 @@ type Event struct {
 	end   time.Time
 }
 
+const icsTimeLayout = "20060102T150405Z"
 const urlWSched = "https://summacollege.xedule.nl/Calendar/iCalendarICS/%d?year=%d&week=%d"
 
-const icsTimeLayout = "20060102T150405Z"
-
+// Get either returns the WeekSchedule for the given aid, year and week from cache
+// or if no valid cache, fetches the ICS file, parses it and returns the WeekSchedule from that.
 func Get(aid, year, week int) (WeekSchedule, time.Time, error) {
+
+	// Request cache
 	ch := make(chan cacheResponse)
 	chWkReq <- cacheRequest{
 		ch:     ch,
 		aid:    aid,
 		year:   year,
 		week:   week,
-		maxAge: defMaxAge,
+		maxAge: defReqMaxAge,
 	}
 
+	// Wait for and handle cache response
 	c := <-ch
 	if c.found {
 		return c.w, c.time, nil
@@ -155,9 +161,6 @@ loop:
 		Week: week,
 	}
 
-	// Compare cache
-	// Only find atts for new items.
-
 	if len(atts) > 0 {
 		w.findAtts(atts)
 	}
@@ -167,7 +170,10 @@ loop:
 	return w, time.Time{}, nil
 }
 
+// findAtts sorts the attendees of the WeekSchedule's events
+// as class, staff or facility by looking the names up in the database.
 func (w *WeekSchedule) findAtts(names []string) error {
+	// Format the names.
 	var end string
 	for i, n := range names {
 		if i > 0 {
@@ -175,29 +181,42 @@ func (w *WeekSchedule) findAtts(names []string) error {
 		}
 		end += "'" + n + "'"
 	}
+
+	// Query the attendees by name.
 	atts, err := attendee.FetchS([]string{"name", "type"}, "WHERE name IN ("+end+")")
 	if err != nil {
 		return err
 	}
 
-	for di, d := range w.Days {
-		for ei, e := range d.Events {
-			for _, a := range atts {
-				for _, as := range e.atts {
-					if a.Name == as {
-						switch a.Type {
-						case attendee.Class:
-							w.Days[di].Events[ei].Classes = append(w.Days[di].Events[ei].Classes, a.Name)
-						case attendee.Staff:
-							w.Days[di].Events[ei].Staffs = append(w.Days[di].Events[ei].Staffs, a.Name)
-						case attendee.Facil:
-							w.Days[di].Events[ei].Facs = append(w.Days[di].Events[ei].Facs, a.Name)
-						}
-					}
+	// Make a map of atts, for easier lookup by name below.
+	attsM := make(map[string]attendee.Attendee)
+	for _, a := range atts {
+		attsM[a.Name] = a
+	}
+
+	for di, d := range w.Days { // Day
+		for ei, e := range d.Events { // Event
+			for _, ea := range e.atts { // Attendee of the event (EventAttendee)
+				// Lookup attendee by name.
+				att, ok := attsM[ea]
+				if !ok {
+					continue
+				}
+
+				// Determine which type this attendee is.
+				switch att.Type {
+				case attendee.Class:
+					w.Days[di].Events[ei].Classes = append(w.Days[di].Events[ei].Classes, att.Name)
+				case attendee.Staff:
+					w.Days[di].Events[ei].Staffs = append(w.Days[di].Events[ei].Staffs, att.Name)
+				case attendee.Facil:
+					w.Days[di].Events[ei].Facs = append(w.Days[di].Events[ei].Facs, att.Name)
+
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -222,16 +241,3 @@ type EventsByStart []Event
 func (e EventsByStart) Len() int           { return len(e) }
 func (e EventsByStart) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 func (e EventsByStart) Less(i, j int) bool { return e[i].start.Unix() < e[j].start.Unix() }
-
-/*
-// If Schedule should be stored ('cached') in database.
-
-type ScheduleItemAttendee struct {
-	ItemScheduleId int
-	AttendeeId int
-}
-
-func fetchFromDb(aid int, year int, week int) {
-	// Select ScheduleItems with ScheduleItemAttendee aid is given aid.
-}
-*/
