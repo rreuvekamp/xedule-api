@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rreuvekamp/xedule-api/types/attendee"
+	"github.com/rreuvekamp/xedule-api/attendee"
+	"github.com/rreuvekamp/xedule-api/misc"
 )
 
 // WeekSchedule contains all Days and Events of an attendee for a week.
@@ -42,7 +43,7 @@ type Event struct {
 }
 
 const icsTimeLayout = "20060102T150405Z"
-const urlWSched = "https://summacollege.xedule.nl/Calendar/iCalendarICS/%d?year=%d&week=%d"
+const urlWSched = "%sCalendar/iCalendarICS/%d?year=%d&week=%d"
 
 // Get either returns the WeekSchedule for the given aid, year and week from cache
 // or if no valid cache, fetches the ICS file, parses it and returns the WeekSchedule from that.
@@ -67,7 +68,7 @@ func Get(aid, year, week int) (WeekSchedule, time.Time, error) {
 	// Check cache
 	// Serve cache if not outdated.
 
-	resp, err := http.Get(fmt.Sprintf(urlWSched, aid, year, week))
+	resp, err := http.Get(fmt.Sprintf(urlWSched, misc.UrlPrefix, aid, year, week))
 	if err != nil {
 		log.Println("ERROR fetching ICS file of weekschedule:", err, aid, year, week)
 		return WeekSchedule{}, time.Time{}, err

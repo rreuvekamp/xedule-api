@@ -54,7 +54,7 @@ func RunCache() {
 
 			var re cacheResponse
 
-			if !ok || time.Since(time.Now()).Seconds() > r.maxAge.Seconds() {
+			if !ok || time.Since(wk.time).Seconds() > r.maxAge.Seconds() {
 				r.ch <- re
 				delete(wscheds, id)
 				continue

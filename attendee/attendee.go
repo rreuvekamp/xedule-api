@@ -27,6 +27,8 @@ const (
 	Facil Type = 1 << iota // 3, facility
 )
 
+const urlAttendees = "%sOrganisatorischeEenheid/Attendees/%d"
+
 // FetchS does an SELECT SQL query for attendees.
 // The fields to select can by given (defaults to all fields)
 // as well as the the end of the statement (everything after 'FROM attendee').
@@ -105,7 +107,7 @@ func FetchS(fields []string, end string) ([]Attendee, error) {
 func Update(lid int) error {
 
 	// Fetch the page
-	resp, err := http.Get(fmt.Sprintf("%s/OrganisatorischeEenheid/Attendees/%d", misc.UrlPrefix, lid))
+	resp, err := http.Get(fmt.Sprintf(urlAttendees, misc.UrlPrefix, lid))
 	if err != nil {
 		log.Println("ERROR fetching page with attendees:", err, lid)
 		return err

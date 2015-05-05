@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/rreuvekamp/xedule-api/types/weekschedule"
+	"github.com/rreuvekamp/xedule-api/weekschedule"
 )
 
 // WSched HTTP handler gives the WeekSchedule for the given attendee id (aid), year and week.

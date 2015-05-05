@@ -10,11 +10,12 @@ import (
 )
 
 type errStr struct {
-	Error string
+	Error string `json:"error"`
 }
 
-// writeJSON writes the given struct (v) on the given http ResponseWriter in JSON format.
-// A time object is used for determining last-modified (headers).
+// writeJSON writes the given object (v) on the given http ResponseWriter in JSON format.
+// The time given should be the time the object was last modified, for setting the last-modified
+// headers and sending StatusNotModified if the client has the correct version already.
 func writeJSON(w http.ResponseWriter, r *http.Request, v interface{}, tm time.Time) error {
 	indent := ""
 	if repeat, err := strconv.Atoi(r.FormValue("indent")); err == nil && repeat > 0 {
@@ -34,9 +35,8 @@ func writeJSON(w http.ResponseWriter, r *http.Request, v interface{}, tm time.Ti
 
 	// Check if time is not empty
 	if tm != (time.Time{}) {
-		if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil &&
-			tm.Unix() <= t.Unix() {
-
+		t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since"))
+		if err == nil && tm.Unix() <= t.Unix() {
 			w.WriteHeader(http.StatusNotModified)
 			return errors.New("not modified")
 		}

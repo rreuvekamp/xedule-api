@@ -3,22 +3,25 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
+	_ "expvar"
+
+	"github.com/rreuvekamp/xedule-api/attendee"
 	"github.com/rreuvekamp/xedule-api/handlers"
 	"github.com/rreuvekamp/xedule-api/misc"
-	"github.com/rreuvekamp/xedule-api/types/attendee"
-	"github.com/rreuvekamp/xedule-api/types/weekschedule"
+	"github.com/rreuvekamp/xedule-api/weeks"
+	"github.com/rreuvekamp/xedule-api/weekschedule"
 )
 
 /*
 To do:
  Have attendees be in memory instead of database.
-+Cache of WeekSchedule clean up every 15 minutes.
  Log HTTP requests
-+Readme markdown
-+Config file
++weeks.json
+ Move directories inside types to the root.
 */
 
 func main() {
@@ -27,7 +30,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Don't exit program. Without a database this application can still preform some tasks (WeekSchedule without attendee types).
+	// Don't exit program. Without a database this application can still
+	// preform some tasks (WeekSchedule without attendee types).
 	misc.ConnectDb()
 
 	lid := flag.Int("update-attendees", 0,
@@ -44,8 +48,12 @@ func main() {
 	}
 
 	go wsched.RunCache()
+	go weeks.Run()
 
 	http.HandleFunc("/schedule.json", handlers.WSched)
+	http.HandleFunc("/weeks.json", handlers.Weeks)
 
-	fmt.Println(http.ListenAndServe(misc.Cfg().Http.Addr, nil))
+	log.Println("Started")
+
+	log.Println(http.ListenAndServe(misc.Cfg().Http.Addr, nil))
 }
