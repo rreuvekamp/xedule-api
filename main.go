@@ -20,8 +20,8 @@ import (
 To do:
  Have attendees be in memory instead of database.
  Log HTTP requests
-+weeks.json
- Move directories inside types to the root.
+ /attendee.json?aid=14327,14309
++/schedule.json also giving list of attendee ids
 */
 
 func main() {
@@ -52,6 +52,10 @@ func main() {
 
 	http.HandleFunc("/schedule.json", handlers.WSched)
 	http.HandleFunc("/weeks.json", handlers.Weeks)
+	http.HandleFunc("/attendee.json", handlers.Attendee)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("https://github.com/rreuvekamp/xedule-api"))
+	})
 
 	log.Println("Started")
 

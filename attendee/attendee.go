@@ -13,18 +13,19 @@ import (
 )
 
 type Attendee struct {
-	Id   int
-	Name string
-	Type Type
-	Lid  int // locationId
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+	Type Type   `json:"type"`
+	Lid  int    `json:"-"` // locationId
 }
 
 type Type uint8
 
 const (
-	Class Type = 1 << iota // 1
-	Staff Type = 1 << iota // 2
-	Facil Type = 1 << iota // 3, facility
+	_          = iota // Skip 0
+	Class Type = iota // 1
+	Staff Type = iota // 2
+	Facil Type = iota // 3, facility
 )
 
 const urlAttendees = "%sOrganisatorischeEenheid/Attendees/%d"

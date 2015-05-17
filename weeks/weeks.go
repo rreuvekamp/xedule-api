@@ -59,7 +59,7 @@ func Get() (weeks, time.Time, error) {
 	// Update the cache
 	chWksSet <- cache{wks: w, time: time.Now()}
 
-	return w, time.Time{}, nil
+	return w, time.Now(), nil
 }
 
 // parse is used by Get to parse and HTML node and look for

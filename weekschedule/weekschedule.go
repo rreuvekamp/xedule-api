@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,12 @@ type WeekSchedule struct {
 	Year int           `json:"year"`
 	Week int           `json:"week"`
 	Days []DaySchedule `json:"days"`
+
+	// Atts is a map with attendee IDs by Attendee.
+	// Only the a-ids are stored in Event. Attendees which id's are in an Event are stored here,
+	// so they aren't duplicate (and therefor 'inefficient').
+	// Should actually be map[int]... but JSON cannot have int keys.
+	Atts map[string]attendee.Attendee `json:"atts"`
 }
 
 // DaySchedule contains all Events of an attendee for a day.
@@ -28,15 +35,17 @@ type DaySchedule struct {
 
 // Event is a single event for an attendee.
 type Event struct {
-	Start   int64    `json:"start"`
-	End     int64    `json:"end"`
-	Desc    string   `json:"desc"`              // Description
-	Classes []string `json:"classes,omitempty"` // (Other) classes/attendees
-	Facs    []string `json:"facs,omitempty"`    // Facilities
-	Staffs  []string `json:"staffs,omitempty"`
+	Start int64  `json:"start"`
+	End   int64  `json:"end"`
+	Desc  string `json:"desc"` // Description
+	Atts  []int  `json:"atts"`
+	/*Classes   []string `json:"classes,omitempty"` // (Other) classes/attendees
+	Facs      []string `json:"facs,omitempty"`    // Facilities
+	Staffs    []string `json:"staffs,omitempty"`*/
 
 	// Used by Fetch
-	atts []string
+	// Holds the attendee names before there are looked up and put in Atts.
+	tempAtts []string
 
 	start time.Time
 	end   time.Time
@@ -121,11 +130,11 @@ loop:
 		case "LOCATION": // LOCATION:BA6.00
 			loc := icsIndex(split, 1)
 			if len(loc) != 0 {
-				cur.Facs = append(cur.Facs, loc)
+				cur.tempAtts = append(cur.tempAtts, loc)
 			}
 		case "ATTENDEE": // ATTENDEE;CN=XED:MAILTO:noreply@xedule.nl
 			split = strings.Split(icsIndex(split, 0), ";")
-			cur.atts = append(cur.atts, strings.TrimPrefix(icsIndex(split, 1), "CN="))
+			cur.tempAtts = append(cur.tempAtts, strings.TrimPrefix(icsIndex(split, 1), "CN="))
 		case "END":
 			if icsIndex(split, 1) != "VEVENT" {
 				continue
@@ -146,7 +155,7 @@ loop:
 				})
 			}
 
-			atts = append(atts, cur.atts...)
+			atts = append(atts, cur.tempAtts...)
 		}
 	}
 
@@ -184,39 +193,49 @@ func (w *WeekSchedule) findAtts(names []string) error {
 	}
 
 	// Query the attendees by name.
-	atts, err := attendee.FetchS([]string{"name", "type"}, "WHERE name IN ("+end+")")
+	atts, err := attendee.FetchS([]string{"id", "name", "type"}, "WHERE name IN ("+end+")")
 	if err != nil {
 		return err
 	}
 
 	// Make a map of atts, for easier lookup by name below.
-	attsM := make(map[string]attendee.Attendee)
+	attsMapName := make(map[string]attendee.Attendee)
+	attsMapId := make(map[string]attendee.Attendee)
 	for _, a := range atts {
-		attsM[a.Name] = a
+		attsMapName[a.Name] = a
+		attsMapId[strconv.Itoa(a.Id)] = a
 	}
 
 	for di, d := range w.Days { // Day
 		for ei, e := range d.Events { // Event
-			for _, ea := range e.atts { // Attendee of the event (EventAttendee)
+			for _, ea := range e.tempAtts { // Attendee of the event (EventAttendee)
 				// Lookup attendee by name.
-				att, ok := attsM[ea]
+				att, ok := attsMapName[ea]
 				if !ok {
 					continue
 				}
 
+				w.Days[di].Events[ei].Atts = append(w.Days[di].Events[ei].Atts, att.Id)
+
+				//w.Days[di].Events[ei].Atts = append(w.Days[di].Events[ei].Atts, att)
+
 				// Determine which type this attendee is.
-				switch att.Type {
+				/*switch att.Type {
 				case attendee.Class:
 					w.Days[di].Events[ei].Classes = append(w.Days[di].Events[ei].Classes, att.Name)
 				case attendee.Staff:
 					w.Days[di].Events[ei].Staffs = append(w.Days[di].Events[ei].Staffs, att.Name)
 				case attendee.Facil:
 					w.Days[di].Events[ei].Facs = append(w.Days[di].Events[ei].Facs, att.Name)
-
-				}
+				}*/
 			}
+
+			// Clear e.atts (they should be temporary)
+			e.tempAtts = []string{}
 		}
 	}
+
+	w.Atts = attsMapId
 
 	return nil
 }
