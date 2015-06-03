@@ -24,9 +24,10 @@ For example: /schedule.json?aid=14339&week=17
 		week int
 		days {
 			day int // Day of week
+			baseuts int // UnixTime of start of this day (Note: 0:00 AM, not start of first event)
 			events {
-				start int    // UnixTime
-				end   int    // UnixTime
+				start int    // Seconds from start of day (baseuts) till start of event.
+				end   int    // Seconds from start of day (baseuts) till end of event.
 				desc  string // Description
 				atts  int	 // Attendee ids
 			}
@@ -41,6 +42,9 @@ For example: /schedule.json?aid=14339&week=17
 ### /weeks.json
 Gives a list of years/weeks of which there are schedules.
 
+#### Paramater
+- nocache\*
+
 ##### Format
 	[
 		[
@@ -50,10 +54,12 @@ Gives a list of years/weeks of which there are schedules.
 	]
 
 ### /attendee.json
-Gives attendee information of which ids are given.
+Gives attendee information of which ids are given, or attendees of the given location id.
 
-##### Parameter
-- aid int (or "int,int...") (required)
+##### Parameters
+- aid int (or "int,int...") (required or) // Attendee id
+- lid int (required or) // Location id
+- nocache\*
 
 For example: /attendee.json?aid=14339&aid=13451,13452
 
@@ -66,21 +72,41 @@ For example: /attendee.json?aid=14339&aid=13451,13452
 		} 
 	]
 
-#### Features
-WeekSchedules are cached in memory for 10 minutes. 
+### /lastupdate.json
+Gives the time the schedule with the given year/week was last updated.
 
-Weeks list is cached in memory for 30 minutes.
+##### Parameters
+- year int
+- week int
+- nocache\*
 
-A list of attendees in the database is required to be able to put attendees at the proper type (class, facility, staff) and for /attendee.json itself.
-Also, weeks.json needs a valid attendee to fetch the weeks list from Xedule. The first one in the database is used for that. 
+##### Format
+	{
+		year int
+		week int
+		uts int // UnixTimeStamp
+	}
 
-Attendees in the database are not updated automatically. To update them, give --update-attendees with the location id, when starting the application. 
+
+### Features and extra information
+
+##### Database
+A list of attendees in the database is required for /attendee.json .
+The application will work without it, although other API methods also depend on it and will behave odd.
+
+Attendees in the database are not updated automatically. To update them, give --update-attendees with the location id on the application. 
 For example: --update-attendees=34 (for fetching and updating all attendees at location 34).
 
 Database access details can be set in the configuration file which is generated on first startup.
 
-Database structure for table 'attendee':
+SQL database structure for table 'attendee':
 - id   int primary
 - name varchar(32) // Length 32 should be more than enough
 - type tinyint(4)  // 1: class, 2: staff, 3: facility
 - lid  int         // Location Id
+
+##### Cache
+WeekSchedules are cached in memory for 10 minutes. 
+Weeks list is cached in memory for 30 minutes.
+LastUpdate times are cached in memory for 10 minutes.
+* When passing nocache GET parameter, and the remote IP address is white listed for it, cache will not be looked up, thus guaranteeing up to date information. IP addresses on which nocache should have this effect can be set ('white listed') in the configuration file.
