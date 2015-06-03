@@ -25,7 +25,7 @@ type legacyEvent struct {
 const legacyDate = "Mon Jan 02 2006"
 const legacyTime = "15:04"
 
-var legacyTimeAdd = time.Duration(time.Hour * 2)
+var legacyTimeAdd = time.Duration(time.Hour * 0)
 
 // Legacy formats the WeekSchedule in a []legacyday.
 func (w WeekSchedule) Legacy() []legacyDay {

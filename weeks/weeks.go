@@ -21,14 +21,16 @@ const urlWeeks = "%sAttendee/ScheduleCurrent/%d?Code=henk&attId=%d&OreId=%d" // 
 
 // Get either fetches the weekslist from an external page (see urlWeeks) and returns is
 // or returns the list from cache, if the cache is valid (and not out dated).
-func Get() (weeks, time.Time, error) {
+func Get(cache bool) (weeks, time.Time, error) {
 
-	// Check for valid cache, return that if valid.
-	ch := make(chan weeksResponse)
-	chWksReq <- weeksRequest{ch: ch, maxAge: defReqMaxAge}
-	wks := <-ch
-	if wks.found {
-		return wks.wks, wks.time, nil
+	if cache {
+		// Check for valid cache, return that if valid.
+		ch := make(chan weeksResponse)
+		chWksReq <- weeksRequest{ch: ch, maxAge: defReqMaxAge}
+		wks := <-ch
+		if wks.found {
+			return wks.wks, wks.time, nil
+		}
 	}
 
 	// Get the attendee for fetching the weeks list.
@@ -57,7 +59,7 @@ func Get() (weeks, time.Time, error) {
 	sort.Sort(sort.Reverse(w))
 
 	// Update the cache
-	chWksSet <- cache{wks: w, time: time.Now()}
+	chWksSet <- weeksCache{wks: w, time: time.Now()}
 
 	return w, time.Now(), nil
 }

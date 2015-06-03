@@ -29,19 +29,17 @@ type WeekSchedule struct {
 
 // DaySchedule contains all Events of an attendee for a day.
 type DaySchedule struct {
-	Day    time.Weekday `json:"day"`
-	Events []Event      `json:"events"`
+	Day     time.Weekday `json:"day"`
+	BaseUts int64        `json:"baseuts"`
+	Events  []Event      `json:"events"`
 }
 
 // Event is a single event for an attendee.
 type Event struct {
-	Start int64  `json:"start"`
-	End   int64  `json:"end"`
+	Start int    `json:"start"`
+	End   int    `json:"end"`
 	Desc  string `json:"desc"` // Description
 	Atts  []int  `json:"atts"`
-	/*Classes   []string `json:"classes,omitempty"` // (Other) classes/attendees
-	Facs      []string `json:"facs,omitempty"`    // Facilities
-	Staffs    []string `json:"staffs,omitempty"`*/
 
 	// Used by Fetch
 	// Holds the attendee names before there are looked up and put in Atts.
@@ -51,31 +49,37 @@ type Event struct {
 	end   time.Time
 }
 
-const icsTimeLayout = "20060102T150405Z"
+const icsTimeLayout = "20060102T150405"
 const urlWSched = "%sCalendar/iCalendarICS/%d?year=%d&week=%d"
 
 // Get either returns the WeekSchedule for the given aid, year and week from cache
 // or if no valid cache, fetches the ICS file, parses it and returns the WeekSchedule from that.
-func Get(aid, year, week int) (WeekSchedule, time.Time, error) {
+// When includeAttsInfo is set to true, Weekschedule.Atts will be occupied with attendees that are
+// in one or more event.
+func Get(aid, year, week int, includeAttsInfo, cache bool) (WeekSchedule, time.Time, error) {
 
-	// Request cache
-	ch := make(chan cacheResponse)
-	chWkReq <- cacheRequest{
-		ch:     ch,
-		aid:    aid,
-		year:   year,
-		week:   week,
-		maxAge: defReqMaxAge,
+	if cache {
+
+		// Request cache
+		ch := make(chan cacheResponse)
+		chWkReq <- cacheRequest{
+			ch:     ch,
+			aid:    aid,
+			year:   year,
+			week:   week,
+			maxAge: defReqMaxAge,
+		}
+
+		// Wait for and handle cache response
+		c := <-ch
+		if c.found {
+			if !includeAttsInfo && len(c.w.Atts) > 0 {
+				c.w.Atts = nil
+			}
+
+			return c.w, c.time, nil
+		}
 	}
-
-	// Wait for and handle cache response
-	c := <-ch
-	if c.found {
-		return c.w, c.time, nil
-	}
-
-	// Check cache
-	// Serve cache if not outdated.
 
 	resp, err := http.Get(fmt.Sprintf(urlWSched, misc.UrlPrefix, aid, year, week))
 	if err != nil {
@@ -94,6 +98,7 @@ func Get(aid, year, week int) (WeekSchedule, time.Time, error) {
 	var cur Event
 	var days []DaySchedule
 	var atts []string // Slice of attendee names which type should be looked up.
+	var baseUts int64
 
 	// The parsing itself
 loop:
@@ -108,20 +113,26 @@ loop:
 			}
 			// Clean/reset current event.
 			cur = Event{}
-		case "DTSTART": // DTEND:20150428T090000Z
-			cur.start, err = time.Parse(icsTimeLayout, strings.TrimSpace(icsIndex(split, 1)))
+		case "DTSTART": // DTEND:20150428T090000
+			cur.start, err = time.ParseInLocation(icsTimeLayout, strings.TrimSpace(icsIndex(split, 1)), misc.Loc)
 			if err != nil {
 				log.Println("ERROR parsing start time of ICS: \n", err, split)
 				continue loop
 			}
-			cur.Start = cur.start.Unix()
-		case "DTEND": // DTSTART:20150428T073000Z
-			cur.end, err = time.Parse(icsTimeLayout, strings.TrimSpace(icsIndex(split, 1)))
+			//if baseUts == 0 {
+			baseUts = time.Date(cur.start.Year(), cur.start.Month(), cur.start.Day(), 0, 0, 0, 0, misc.Loc).Unix()
+			//}
+			cur.Start = int(cur.start.Unix() - baseUts)
+		case "DTEND": // DTSTART:20150428T073000
+			cur.end, err = time.ParseInLocation(icsTimeLayout, strings.TrimSpace(icsIndex(split, 1)), misc.Loc)
 			if err != nil {
 				log.Println("ERROR parsing end time of ICS: \n", err, split)
 				continue loop
 			}
-			cur.End = cur.end.Unix()
+			//if baseUts == 0 {
+			baseUts = time.Date(cur.end.Year(), cur.end.Month(), cur.end.Day(), 0, 0, 0, 0, misc.Loc).Unix()
+			//}
+			cur.End = int(cur.end.Unix() - baseUts)
 		case "DESCRIPTION": // DESCRIPTION:test
 			desc := icsIndex(split, 1)
 			if len(desc) != 0 {
@@ -150,8 +161,9 @@ loop:
 			}
 			if !success {
 				days = append(days, DaySchedule{
-					Events: []Event{cur},
-					Day:    cur.start.Weekday(),
+					Events:  []Event{cur},
+					BaseUts: baseUts,
+					Day:     cur.start.Weekday(),
 				})
 			}
 
@@ -176,6 +188,10 @@ loop:
 	}
 
 	chWkAdd <- cacheAdd{w: w, aid: aid, year: year, week: week, time: time.Now()}
+
+	if !includeAttsInfo && len(w.Atts) > 0 {
+		w.Atts = nil
+	}
 
 	return w, time.Time{}, nil
 }

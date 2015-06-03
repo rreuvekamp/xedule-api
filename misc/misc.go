@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"time"
 
 	_ "github.com/ziutek/mymysql/godrv"
 )
@@ -20,6 +21,9 @@ type config struct {
 		Pass string `json:"password"`
 		Db   string `json:"database"`
 	} `json:"database"`
+	Api struct {
+		NoCacheIpAllow []string `json:"noCacheIpWhitelist"`
+	} `json:"api"`
 }
 
 const CfgFilename = "config.json"
@@ -27,6 +31,8 @@ const UrlPrefix = "https://summacollege.xedule.nl/"
 
 var cfg config
 var Db *sql.DB
+
+var Loc, _ = time.LoadLocation("Europe/Amsterdam")
 
 // ConnectDb initializes the database 'instance'.
 func ConnectDb() error {

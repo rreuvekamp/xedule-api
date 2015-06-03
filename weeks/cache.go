@@ -17,18 +17,18 @@ type weeksResponse struct {
 	time  time.Time
 }
 
-type cache struct {
+type weeksCache struct {
 	wks  weeks
 	time time.Time
 }
 
 var defReqMaxAge = time.Minute * 30
 
-var cacheWeeks cache
+var cacheWeeks weeksCache
 var att attendee.Attendee
 
 var chWksReq = make(chan weeksRequest, 1)           // Request weeks in cache
-var chWksSet = make(chan cache, 1)                  // Set weeks in cache
+var chWksSet = make(chan weeksCache, 1)             // Set weeks in cache
 var chAttReq = make(chan chan attendee.Attendee, 1) // Request attendee for Get
 
 func Run() {

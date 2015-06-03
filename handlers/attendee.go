@@ -36,12 +36,20 @@ func Attendee(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if idsStr == "" {
-		writeJSON(w, r, errStr{Error: "invalid aid/ids (attendee id)"}, time.Time{})
+	lid, _ := strconv.Atoi(r.FormValue("lid"))
+
+	var sqlStr string
+	switch true {
+	case idsStr != "":
+		sqlStr = "WHERE id IN (" + idsStr + ")"
+	case lid > 0:
+		sqlStr = "WHERE lid = " + strconv.Itoa(lid)
+	default:
+		writeJSON(w, r, errStr{Error: "invalid aid/ids (attendee id) and lid (location id)"}, time.Time{})
 		return
 	}
 
-	atts, err := attendee.FetchS([]string{"id", "name", "type"}, "WHERE id IN ("+idsStr+")")
+	atts, err := attendee.FetchS([]string{"id", "name", "type"}, sqlStr)
 
 	if err != nil {
 		writeJSON(w, r, errStr{Error: "error fetching attendees"}, time.Time{})

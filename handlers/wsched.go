@@ -36,7 +36,19 @@ func WSched(w http.ResponseWriter, r *http.Request) {
 		week = cWeek
 	}
 
-	wk, tm, _ := wsched.Get(aid, year, week)
+	includeAttsInfo := true
+	cache := true
+
+	if r.FormValue("noattinfo") != "" {
+		includeAttsInfo = false
+	}
+
+	// NoCache only has effect if the remoteaddr is whitelisted in the config file.
+	if r.FormValue("nocache") != "" && checkCacheWhitelist(ip(r)) {
+		cache = false
+	}
+
+	wk, tm, _ := wsched.Get(aid, year, week, includeAttsInfo, cache)
 
 	if r.FormValue("legacy") != "" {
 		writeJSON(w, r, wk.Legacy(), tm)
